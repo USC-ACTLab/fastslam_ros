@@ -17,13 +17,22 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(irobot_create_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 add_executable(publisher_member_function member_function.cpp)
 target_link_libraries(publisher_member_function FastSLAMLib)
 ament_target_dependencies(publisher_member_function rclcpp std_msgs)
 
+add_executable(create3 src/create3-fastslam.cpp)
+target_link_libraries(create3 FastSLAMLib)
+ament_target_dependencies(create3 rclcpp std_msgs irobot_create_msgs 
+                          nav_msgs sensor_msgs)
+
 install(TARGETS
   publisher_member_function
+  create3
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -2,13 +2,16 @@
 <?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="2">
   <name>slam_publisher</name>
-  <version>0.15.1</version>
+  <version>0.0.1</version>
   <description>FastSLAM and Robot Publisher</description>
   <maintainer email="will_wu@brown.edu"> Will Wu </maintainer>
   <license>Apache License 2.0</license>
   <author>Will Wu</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>irobot_create_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
 
   <build_depend>rclcpp</build_depend>
   <build_depend>std_msgs</build_depend>

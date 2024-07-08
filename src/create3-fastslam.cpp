@@ -18,6 +18,12 @@
 
 using namespace std::chrono_literals;
 
+// constants for create3 pose sensor noise
+static const float x_accel_var = 0.0001543f;
+static const float y_accel_var = 0.0001636f;
+static const float theta_var = 0.0000125f;
+
+
 static float quaternion_to_yaw(
   const geometry_msgs::msg::Quaternion msg) {
     return atan2f(2*(msg.w * msg.z + msg.x*msg.y), 1 - 2*(msg.y * msg.y + msg.z * msg.z));
@@ -34,7 +40,9 @@ public:
     
     const struct Pose2D init_pose {.x = 0, .y = 0, .theta_rad = 0};
     const struct VelocityCommand2D init_cmd {.vx_mps = 0, .wz_radps = 0};
-    m_robot_manager = std::make_shared<Create3Manager>(init_pose, init_cmd, Eigen::Matrix2f::Zero(), 3.0f);
+    Eigen::Matrix3f rob_process_noise;
+    rob_process_noise.diagonal() << x_accel_var, y_accel_var, theta_var;
+    m_robot_manager = std::make_shared<Create3Manager>(init_pose, init_cmd, Eigen::Matrix2f::Zero(), 3.0f, rob_process_noise);
     m_fastslam_filter = std::make_unique<FastSLAMPF>(m_robot_manager);
   }
 

@@ -10,6 +10,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "irobot_create_msgs/msg/dock_status.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 
@@ -23,6 +24,8 @@ static const float x_accel_var = 0.0001543f;
 static const float y_accel_var = 0.0001636f;
 static const float theta_var = 0.0000125f;
 
+constexpr float IMU_UPDATE_FREQ = 1.0f / 100.0f;
+
 
 static float quaternion_to_yaw(
   const geometry_msgs::msg::Quaternion msg) {
@@ -33,8 +36,12 @@ class FastSLAMC3: public rclcpp::Node
 {
 public:
   FastSLAMC3(): Node("fastslam_create3"){
+#ifdef USE_ROB_ODOM
     m_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
     "odom", 10, std::bind(&FastSLAMC3::odom_callback, this, std::placeholders::_1));
+#endif
+    m_imu_sub = this->create_subscription<sensor_msgs::msg::Imu>(
+      "imu", 10, std::bind(&FastSLAMC3::imu_callback, this, std::placeholders::_1));
     m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
     "landmark", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
     
@@ -47,10 +54,14 @@ public:
   }
 
 private:
+#ifdef USE_ROB_ODOM
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odom_sub;
   void odom_callback(const nav_msgs::msg::Odometry msg);
+#endif //USE_ROB_ODOM
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr m_landmark_sub;
   void lm_callback(const sensor_msgs::msg::LaserScan msg);
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr m_imu_sub;
+  void imu_callback(const sensor_msgs::msg::Imu msg);
 
   //FastSLAM member variables
   std::unique_ptr<FastSLAMPF> m_fastslam_filter;
@@ -61,11 +72,22 @@ private:
   
 };
 
+#ifdef USE_ROB_ODOM
 void FastSLAMC3::odom_callback(const nav_msgs::msg::Odometry msg) {
   m_rob_pose_mean.theta_rad = quaternion_to_yaw(msg.pose.pose.orientation);
   RCLCPP_INFO(this->get_logger(), "Yaw: %f", m_rob_pose_mean.theta_rad);
   m_rob_pose_mean.x = msg.pose.pose.position.x;
   m_rob_pose_mean.y = msg.pose.pose.position.y;
+}
+#endif //USE_ROB_ODOM
+
+void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu msg){
+  auto a_x = msg.linear_acceleration.x;
+  auto a_y = msg.linear_acceleration.y;
+  
+  m_rob_pose_mean.x += 0.5 * a_x  * IMU_UPDATE_FREQ;
+  m_rob_pose_mean.x += 0.5 * a_y  * IMU_UPDATE_FREQ;
+  m_rob_pose_mean.theta_rad = quaternion_to_yaw(msg.orientation);
 }
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan msg){

@@ -49,49 +49,58 @@ public:
     const struct VelocityCommand2D init_cmd {.vx_mps = 0, .wz_radps = 0};
     Eigen::Matrix3f rob_process_noise;
     rob_process_noise.diagonal() << x_accel_var, y_accel_var, theta_var;
+
     m_robot_manager = std::make_shared<Create3Manager>(init_pose, init_cmd, Eigen::Matrix2f::Zero(), 3.0f, rob_process_noise);
-    m_fastslam_filter = std::make_unique<FastSLAMPF>(m_robot_manager);
+    m_fastslam_filter = std::make_unique<FastSLAMPF>(
+      std::static_pointer_cast<RobotManager2D>(m_robot_manager));
+
+    m_rob_pose_delta = {.x = 0, .y = 0, .theta_rad = 0};
   }
 
 private:
 #ifdef USE_ROB_ODOM
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odom_sub;
-  void odom_callback(const nav_msgs::msg::Odometry msg);
+  void odom_callback(const nav_msgs::msg::Odometry& msg);
 #endif //USE_ROB_ODOM
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr m_landmark_sub;
-  void lm_callback(const sensor_msgs::msg::LaserScan msg);
+  void lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr m_imu_sub;
-  void imu_callback(const sensor_msgs::msg::Imu msg);
+  void imu_callback(const sensor_msgs::msg::Imu& msg);
 
   //FastSLAM member variables
   std::unique_ptr<FastSLAMPF> m_fastslam_filter;
   std::shared_ptr<Create3Manager> m_robot_manager;
 
   //robot parameters
-  struct Pose2D m_rob_pose_mean;
+  struct Pose2D m_rob_pose_delta;
   
 };
 
 #ifdef USE_ROB_ODOM
-void FastSLAMC3::odom_callback(const nav_msgs::msg::Odometry msg) {
-  m_rob_pose_mean.theta_rad = quaternion_to_yaw(msg.pose.pose.orientation);
-  RCLCPP_INFO(this->get_logger(), "Yaw: %f", m_rob_pose_mean.theta_rad);
-  m_rob_pose_mean.x = msg.pose.pose.position.x;
-  m_rob_pose_mean.y = msg.pose.pose.position.y;
+void FastSLAMC3::odom_callback(const nav_msgs::msg::Odometry& msg) {
+  m_rob_pose_delta.theta_rad = quaternion_to_yaw(msg.pose.pose.orientation);
+  RCLCPP_INFO(this->get_logger(), "Yaw: %f", m_rob_pose_delta.theta_rad);
+  m_rob_pose_delta.x = msg.pose.pose.position.x;
+  m_rob_pose_delta.y = msg.pose.pose.position.y;
 }
 #endif //USE_ROB_ODOM
 
-void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu msg){
+void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu& msg){
   auto a_x = msg.linear_acceleration.x;
   auto a_y = msg.linear_acceleration.y;
   
-  m_rob_pose_mean.x += 0.5 * a_x  * IMU_UPDATE_FREQ;
-  m_rob_pose_mean.x += 0.5 * a_y  * IMU_UPDATE_FREQ;
-  m_rob_pose_mean.theta_rad = quaternion_to_yaw(msg.orientation);
+  m_rob_pose_delta.x += 0.5 * a_x  * IMU_UPDATE_FREQ;
+  m_rob_pose_delta.x += 0.5 * a_y  * IMU_UPDATE_FREQ;
+  m_rob_pose_delta.theta_rad = quaternion_to_yaw(msg.orientation);
 }
 
-void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan msg){
+void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
   RCLCPP_INFO(this->get_logger(), "I heard stuff");
+
+#ifdef LASER_CODE_COMMITED
+  std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg);
+  m_fastslam_filter->updateFilter(m_rob_pose_delta, lidar_landmarks);
+#endif // LASER_CODE_COMMTIED
 }
 
 int main(int argc, char * argv[])

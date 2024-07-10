@@ -8,6 +8,7 @@
 #include <queue>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/qos.hpp"
 #include "irobot_create_msgs/msg/dock_status.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/imu.hpp"
@@ -40,10 +41,14 @@ public:
     m_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
     "odom", 10, std::bind(&FastSLAMC3::odom_callback, this, std::placeholders::_1));
 #endif
+    rmw_qos_profile_t imu_init_profile = rmw_qos_profile_default;
+    auto imu_qos_profile = std::make_unique<rclcpp::QoS>(rclcpp::QoSInitialization(imu_init_profile.history, 10), imu_init_profile);
+    imu_qos_profile->best_effort();
+    imu_qos_profile->durability_volatile();
     m_imu_sub = this->create_subscription<sensor_msgs::msg::Imu>(
-      "imu", 10, std::bind(&FastSLAMC3::imu_callback, this, std::placeholders::_1));
+      "robot_1/imu", *imu_qos_profile, std::bind(&FastSLAMC3::imu_callback, this, std::placeholders::_1));
     m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
-    "landmark", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
+    "scan", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
 
     m_deadreckon_odom = this->create_publisher<nav_msgs::msg::Odometry>("slam_motion", 10);
     

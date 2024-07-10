@@ -27,6 +27,9 @@ static const float theta_var = 0.0000125f;
 
 constexpr float IMU_UPDATE_FREQ = 1.0f / 100.0f;
 
+static float x_accu = 0.0f;
+static float y_accu = 0.0f;
+
 
 static float quaternion_to_yaw(
   const geometry_msgs::msg::Quaternion msg) {
@@ -98,20 +101,21 @@ void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu& msg){
   auto a_x = msg.linear_acceleration.x;
   auto a_y = msg.linear_acceleration.y;
   
-  m_rob_pose_delta.x += 0.5 * a_x  * IMU_UPDATE_FREQ;
-  m_rob_pose_delta.x += 0.5 * a_y  * IMU_UPDATE_FREQ;
+  m_rob_pose_delta.x = 0.5 * a_x  * IMU_UPDATE_FREQ;
+  m_rob_pose_delta.y = 0.5 * a_y  * IMU_UPDATE_FREQ;
   m_rob_pose_delta.theta_rad = quaternion_to_yaw(msg.orientation);
 
   RCLCPP_DEBUG(this->get_logger(), "Publishing robot odom:");
   auto message = nav_msgs::msg::Odometry();
-  message.pose.pose.position.x = m_rob_pose_delta.x;
-  message.pose.pose.position.y = m_rob_pose_delta.y;
+  x_accu += m_rob_pose_delta.x;
+  y_accu += m_rob_pose_delta.y;
+  message.pose.pose.position.x = x_accu.x;
+  message.pose.pose.position.y = y_accu.y;
 
   m_deadreckon_odom->publish(message);
 }
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
-  RCLCPP_INFO(this->get_logger(), "I heard stuff");
 
 #ifdef LASER_CODE_COMMITED
   std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg);

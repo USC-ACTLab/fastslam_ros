@@ -28,8 +28,11 @@ static const float theta_var = 0.0000125f;
 constexpr float IMU_UPDATE_T_s = 1.0f / 100.0f;
 constexpr float IMU_INTEGRATION_s2 = IMU_UPDATE_T_s * IMU_UPDATE_T_s;
 
-static float x_accu = 0.0f;
-static float y_accu = 0.0f;
+static float vx = 0.0f;
+static float vy = 0.0f;
+
+static float x_pos = 0.0f;
+static float y_pos = 0.0f;
 
 
 static float quaternion_to_yaw(
@@ -99,19 +102,20 @@ void FastSLAMC3::odom_callback(const nav_msgs::msg::Odometry& msg) {
 #endif //USE_ROB_ODOM
 
 void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu& msg){
+  RCLCPP_INFO(this->get_logger(), "Publishing robot odom:");
   auto a_x = msg.linear_acceleration.x;
   auto a_y = msg.linear_acceleration.y;
-  
-  m_rob_pose_delta.x = 0.5 * a_x  * IMU_INTEGRATION_s2;
-  m_rob_pose_delta.y = 0.5 * a_y  * IMU_INTEGRATION_s2;
-  m_rob_pose_delta.theta_rad = quaternion_to_yaw(msg.orientation);
 
-  RCLCPP_DEBUG(this->get_logger(), "Publishing robot odom:");
+  m_rob_pose_delta.x = vx * IMU_UPDATE_T_s + a_x * IMU_INTEGRATION_s2 * 0.5;
+  m_rob_pose_delta.y = vy * IMU_UPDATE_T_s + a_y * IMU_INTEGRATION_s2 * 0.5;
+  vx += a_x * IMU_UPDATE_T_s;
+  vy += a_y * IMU_UPDATE_T_s;
+
   auto message = nav_msgs::msg::Odometry();
-  x_accu += m_rob_pose_delta.x;
-  y_accu += m_rob_pose_delta.y;
-  message.pose.pose.position.x = x_accu;
-  message.pose.pose.position.y = y_accu;
+  x_pos += m_rob_pose_delta.x;
+  y_pos += m_rob_pose_delta.y;
+  message.pose.pose.position.x = x_pos;
+  message.pose.pose.position.y = y_pos;
 
   m_deadreckon_odom->publish(message);
 }

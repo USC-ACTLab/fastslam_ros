@@ -44,6 +44,8 @@ public:
       "imu", 10, std::bind(&FastSLAMC3::imu_callback, this, std::placeholders::_1));
     m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
     "landmark", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
+
+    m_deadreckon_odom = this->create_publisher<nav_msgs::msg::Odometry>("slam_motion", 10);
     
     const struct Pose2D init_pose {.x = 0, .y = 0, .theta_rad = 0};
     const struct VelocityCommand2D init_cmd {.vx_mps = 0, .wz_radps = 0};
@@ -66,6 +68,8 @@ private:
   void lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr m_imu_sub;
   void imu_callback(const sensor_msgs::msg::Imu& msg);
+
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr m_deadreckon_odom;
 
   //FastSLAM member variables
   std::unique_ptr<FastSLAMPF> m_fastslam_filter;
@@ -92,6 +96,13 @@ void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu& msg){
   m_rob_pose_delta.x += 0.5 * a_x  * IMU_UPDATE_FREQ;
   m_rob_pose_delta.x += 0.5 * a_y  * IMU_UPDATE_FREQ;
   m_rob_pose_delta.theta_rad = quaternion_to_yaw(msg.orientation);
+
+  RCLCPP_DEBUG(this->get_logger(), "Publishing robot odom:");
+  auto message = nav_msgs::msg::Odometry();
+  message.pose.pose.position.x = m_rob_pose_delta.x;
+  message.pose.pose.position.y = m_rob_pose_delta.y;
+
+  m_deadreckon_odom->publish(message);
 }
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){

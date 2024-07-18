@@ -22,8 +22,11 @@ find_package(irobot_create_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
 add_executable(publisher_member_function member_function.cpp)
+add_executable(lidar_subscriber lidar_subscriber.cpp)
 target_link_libraries(publisher_member_function FastSLAMLib)
+target_link_libraries(lidar_subscriber FastSLAMLib)
 ament_target_dependencies(publisher_member_function rclcpp std_msgs)
+ament_target_dependencies(lidar_subscriber rclcpp sensor_msgs)
 
 add_executable(create3 src/create3-fastslam.cpp)
 target_link_libraries(create3 FastSLAMLib)
@@ -33,6 +36,7 @@ ament_target_dependencies(create3 rclcpp std_msgs irobot_create_msgs
 install(TARGETS
   publisher_member_function
   create3
+  lidar_subscriber
   DESTINATION lib/${PROJECT_NAME}
 )
 

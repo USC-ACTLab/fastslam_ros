@@ -9,8 +9,10 @@
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include <queue>
 #include <limits>
+#include "visualization_msgs/msg/marker.hpp"
 
 constexpr float LANDMARK_THRESHOLD_m = 0.0125;
+constexpr bool testing = true;
 
 bool same_landmark(const Observation2D &first, const Observation2D &second){
   float r1 = first.range_m;
@@ -18,14 +20,10 @@ bool same_landmark(const Observation2D &first, const Observation2D &second){
   float theta1 = first.bearing_rad;
   float theta2 = second.bearing_rad;
   float distance = sqrt(pow(r1,2.0)+pow(r2, 2.0)-2*r1*r2*cos(theta1-theta2));
-  if (distance>= LANDMARK_THRESHOLD_m){
-      std::cout<<distance<<" ";
-  }
-
   return  distance <= LANDMARK_THRESHOLD_m;
 }
 
-Observation2D merge(const Observation2D &existing_landmark, const Observation2D &new_measurement, int count){
+Observation2D merge(const Observation2D &existing_landmark, const Observation2D &new_measurement, int &count){
   struct Observation2D average;
   average.range_m = ((count-1)*existing_landmark.range_m+new_measurement.range_m)/count;
   average.bearing_rad = ((count-1)*existing_landmark.bearing_rad+new_measurement.bearing_rad)/count;
@@ -48,9 +46,11 @@ class LidarSubscriber : public rclcpp::Node
     {
       subscription = this->create_subscription<sensor_msgs::msg::LaserScan>(
       "scan_filtered", 10, std::bind(&LidarSubscriber::laserscan_to_landmarks, this, std::placeholders::_1));
+      publisher = this->create_publisher<visualization_msgs::msg::Marker>("landmark_visualization",10);
     }
   private:
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr publisher;
     std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg){
         float angle_increment = msg->angle_increment;
         int measurement_count = static_cast<int>(std::round((msg->angle_max-msg->angle_min)/angle_increment)) + 1;
@@ -90,9 +90,37 @@ class LidarSubscriber : public rclcpp::Node
         }
 	
         std::cout<<landmarks.size()<<"\n";
+	if (testing){
+	    std::queue<Observation2D>landmarks_copy(landmarks);
+	     visualize_landmarks(landmarks_copy);
+	}
        	return landmarks;
     }
 
+    void visualize_landmarks(std::queue<Observation2D> landmarks){
+	 auto message = visualization_msgs::msg::Marker();
+	 message.header.stamp = this->now();
+	 message.header.frame_id = "laser";
+	 message.action = 0;
+	 message.type = 8;
+	 message.ns = "landmark_list";
+	 message.id = 0;
+	 message.pose.orientation.w = 1.0;
+	 message.scale.x = 0.2;
+	 message.scale.y = 0.2;
+	 message.color.r = 3;
+	 message.color.g = 252;
+	 message.color.b = 61;
+	 while(!landmarks.empty()){
+		auto curr_point = geometry_msgs::msg::Point();
+		Observation2D curr_landmark = landmarks.front();
+		curr_point.x = curr_landmark.range_m*cos(curr_landmark.bearing_rad);
+		curr_point.y = curr_landmark.range_m*sin(curr_landmark.bearing_rad);
+		message.points.push_back(curr_point);
+		landmarks.pop();
+	 }
+	 publisher->publish(message);
+    }
 };
 
 

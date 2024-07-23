@@ -109,7 +109,7 @@ class LidarSubscriber : public rclcpp::Node
           landmarks.pop();
         }
 	
-std::cout<<landmarks.size()<<" "<<landmarks.front().range_m<<" "<<landmarks.front().bearing_rad<<"\n";
+        std::cout<<landmarks.size()<<" "<<landmarks.front().range_m<<" "<<landmarks.front().bearing_rad<<"\n";
 	if (testing){
 	    std::queue<Observation2D>landmarks_copy(landmarks);
 	     visualize_landmarks(landmarks_copy);
@@ -126,18 +126,18 @@ std::cout<<landmarks.size()<<" "<<landmarks.front().range_m<<" "<<landmarks.fron
 	 message.ns = "landmark_list";
 	 message.id = 0;
 	 message.pose.orientation.w = 1.0;
-	 message.scale.x = 1.0;
-	 message.scale.y = 1.0;
+	 message.scale.x = 0.04;
+	 message.scale.y = 0.04;
 	 auto color = std_msgs::msg::ColorRGBA();
-	 color.r = 0;
-	 color.g = 0;
-	 color.b = 20;
+	 color.r = 255;
+	 color.g = 255;
+	 color.b = 255;
 	 color.a = 0.8;
 	 while(!landmarks.empty()){
 		auto curr_point = geometry_msgs::msg::Point();
 		Observation2D curr_landmark = landmarks.front();
-		curr_point.x = curr_landmark.range_m*cos(curr_landmark.bearing_rad);
-		curr_point.y = curr_landmark.range_m*sin(curr_landmark.bearing_rad);
+		curr_point.x = -1*curr_landmark.range_m*cos(curr_landmark.bearing_rad);
+		curr_point.y = -1*curr_landmark.range_m*sin(curr_landmark.bearing_rad);
 		message.points.push_back(curr_point);
 		landmarks.pop();
 		message.colors.push_back(color);

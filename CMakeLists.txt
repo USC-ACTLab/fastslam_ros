@@ -30,8 +30,12 @@ target_link_libraries(lidar_subscriber FastSLAMLib)
 ament_target_dependencies(publisher_member_function rclcpp std_msgs)
 ament_target_dependencies(lidar_subscriber rclcpp sensor_msgs std_msgs geometry_msgs visualization_msgs)
 
+option (USE_ROB_ODOM "Use robot odometry estimate" ON)
+option (USE_ROB_IMU "Use robot imu for estimate" OFF)
+option (USE_ROB_CTRL "Use robot control for estimate" OFF)
 add_executable(create3 src/create3-fastslam.cpp)
 target_link_libraries(create3 FastSLAMLib)
+target_compile_definitions (create3 PUBLIC USE_ROB_ODOM USE_ROB_IMU USE_ROB_CTRL)
 ament_target_dependencies(create3 rclcpp std_msgs irobot_create_msgs 
                           nav_msgs sensor_msgs)
 

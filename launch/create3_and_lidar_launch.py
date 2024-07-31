@@ -1,0 +1,34 @@
+from launch_ros.substitutions import FindPackageShare
+
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution, TextSubstitution
+from launch_ros.actions import Node
+def generate_launch_description():
+    return LaunchDescription([
+        Node(
+            package='slam_publisher',
+            executable='create3',
+            name='create3'
+        ), 
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('laser_filters'),
+                    'examples',
+                    'range_filter_example.launch.py'
+                ])
+            ]),
+        ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('rplidar_ros'),
+                    'launch',
+                    'rplidar_a1_launch.py'
+                ])
+            ])
+   
+        )
+    ])

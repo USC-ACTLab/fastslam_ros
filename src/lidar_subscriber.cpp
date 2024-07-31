@@ -110,7 +110,6 @@ std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserSc
     landmarks.pop();
   }
 
-  std::cout<<landmarks.size()<<"\n";
   #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
     std::queue<Observation2D>landmarks_copy(landmarks);
     visualize_landmarks(landmarks_copy, observation_visualization_publisher);

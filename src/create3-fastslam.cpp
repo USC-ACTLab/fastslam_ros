@@ -161,7 +161,8 @@ void FastSLAMC3::publishSLAMOdom() {
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
   std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg, m_observation_visualization_pub);
- // m_fastslam_filter->updateFilter(m_rob_pose_delta, lidar_landmarks);
+//RCLCPP_INFO(this->get_logger(), "Number of landmarks observed %lu", lidar_landmarks.size());
+   m_fastslam_filter->updateFilter(m_rob_pose_delta, lidar_landmarks);
 }
 
 int main(int argc, char * argv[])

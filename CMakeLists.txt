@@ -26,6 +26,7 @@ find_package(geometry_msgs REQUIRED)
 
 # Include directories
 include_directories(${PROJECT_SOURCE_DIR}/include)
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)
 target_include_directories(LidarSubscriberLib PRIVATE ${PROJECT_SOURCE_DIR}/include)
 add_executable(member_function src/member_function.cpp)
 add_executable(create3 src/create3-fastslam.cpp)

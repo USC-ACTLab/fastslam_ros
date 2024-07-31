@@ -5,6 +5,7 @@
 #include <limits>
 #include "rclcpp/rclcpp.hpp"
 #include "core-structs.h"
+#include "lidar-subscriber.h"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
@@ -45,8 +46,36 @@ static void merge_landmarks(Observation2D &first_landmark, Observation2D &last_l
   last_landmark.bearing_rad = first_landmark.bearing_rad*weight1+(last_landmark.bearing_rad)*weight2;
 }
 
+void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+  auto message = visualization_msgs::msg::Marker();
+  rclcpp::Clock clock = rclcpp::Clock();
+  message.header.stamp = clock.now();
+  message.header.frame_id = "laser";
+  message.action = 0;
+  message.type = 8;
+  message.ns = "landmark_list";
+  message.id = 0;
+  message.pose.orientation.w = 1.0;
+  message.scale.x = 0.04;
+  message.scale.y = 0.04;
+  auto color = std_msgs::msg::ColorRGBA();
+  color.r = 255;
+  color.g = 255;
+  color.b = 255;
+  color.a = 0.8;
+  while(!landmarks.empty()){
+    auto curr_point = geometry_msgs::msg::Point();
+    Observation2D curr_landmark = landmarks.front();
+    curr_point.x = -1*curr_landmark.range_m*cos(curr_landmark.bearing_rad);
+    curr_point.y = -1*curr_landmark.range_m*sin(curr_landmark.bearing_rad);
+    message.points.push_back(curr_point);
+    landmarks.pop();
+    message.colors.push_back(color);
+  }
+  observation_visualization_publisher->publish(message);
+}
 
-std::queue<Observation2D> aserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
   float angle_increment = msg->angle_increment;
   int measurement_count = static_cast<int>(std::round((msg->angle_max-msg->angle_min)/angle_increment)) + 1;
   std::queue<Observation2D> landmarks;
@@ -89,31 +118,6 @@ std::queue<Observation2D> aserscan_to_landmarks(const sensor_msgs::msg::LaserSca
   return landmarks;
 }
 
-void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
-  auto message = visualization_msgs::msg::Marker();
-  rclcpp::Clock clock = rclcpp::Clock();
-  message.header.stamp = clock.now();
-  message.header.frame_id = "laser";
-  message.action = 0;
-  message.type = 8;
-  message.ns = "landmark_list";
-  message.id = 0;
-  message.pose.orientation.w = 1.0;
-  message.scale.x = 0.04;
-  message.scale.y = 0.04;
-  auto color = std_msgs::msg::ColorRGBA();
-  color.r = 255;
-  color.g = 255;
-  color.b = 255;
-  color.a = 0.8;
-  while(!landmarks.empty()){
-    auto curr_point = geometry_msgs::msg::Point();
-    Observation2D curr_landmark = landmarks.front();
-    curr_point.x = -1*curr_landmark.range_m*cos(curr_landmark.bearing_rad);
-    curr_point.y = -1*curr_landmark.range_m*sin(curr_landmark.bearing_rad);
-    message.points.push_back(curr_point);
-    landmarks.pop();
-    message.colors.push_back(color);
-  }
-  observation_visualization_publisher->publish(message);
+int main(){
+	return 0;
 }

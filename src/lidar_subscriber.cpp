@@ -117,7 +117,3 @@ std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserSc
   #endif
   return landmarks;
 }
-
-int main(){
-	return 0;
-}

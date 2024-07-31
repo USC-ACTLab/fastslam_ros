@@ -14,10 +14,11 @@
 #include "sensor_msgs/msg/imu.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
+#include "visualization_msgs/msg/marker.hpp"
 
 #include "robot-manager.h"
 #include "particle-filter.h"
-
+#include "lidar-subscriber.h"
 using namespace std::chrono_literals;
 
 // constants for create3 pose sensor noise
@@ -62,7 +63,8 @@ public:
 #endif // Motion model selection
 
     m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
-    "scan", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
+    "scan_filtered", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
+    m_observation_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("landmark_observations",10);
     m_deadreckon_odom = this->create_publisher<nav_msgs::msg::Odometry>("slam_motion", 10);
     
     const struct Pose2D init_pose {.x = 0, .y = 0, .theta_rad = 0};
@@ -93,7 +95,7 @@ private:
 #endif //Motion model selection
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr m_landmark_sub;
   void lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_observation_visualization_pub;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr m_deadreckon_odom;
   void publishSLAMOdom();
 
@@ -158,11 +160,9 @@ void FastSLAMC3::publishSLAMOdom() {
 }
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
-
-#ifdef LASER_CODE_COMMITED
-  std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg);
-  m_fastslam_filter->updateFilter(m_rob_pose_delta, lidar_landmarks);
-#endif // LASER_CODE_COMMTIED
+  std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg, m_observation_visualization_pub);
+//RCLCPP_INFO(this->get_logger(), "Number of landmarks observed %lu", lidar_landmarks.size());
+   m_fastslam_filter->updateFilter(m_rob_pose_delta, lidar_landmarks);
 }
 
 int main(int argc, char * argv[])

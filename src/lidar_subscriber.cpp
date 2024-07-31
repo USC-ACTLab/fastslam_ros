@@ -5,11 +5,12 @@
 #include <limits>
 #include "rclcpp/rclcpp.hpp"
 #include "core-structs.h"
+#include "lidar-subscriber.h"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
 constexpr float LANDMARK_THRESHOLD_m = 0.02;
-#define VISUALIZE_LANDMARKS
+#define VISUALIZE_LANDMARK_OBSERVATIONS
 
 static bool same_landmark(const Observation2D &first_landmark, const Observation2D &second_landmark){
   float r1 = first_landmark.range_m;
@@ -45,24 +46,36 @@ static void merge_landmarks(Observation2D &first_landmark, Observation2D &last_l
   last_landmark.bearing_rad = first_landmark.bearing_rad*weight1+(last_landmark.bearing_rad)*weight2;
 }
 
-class LidarSubscriber : public rclcpp::Node
-{
-  public:
-    LidarSubscriber()
-   : Node("lidar_subscriber")
-    {
-      m_laserscan_subscription_m = this->create_subscription<sensor_msgs::msg::LaserScan>(
-      "scan_filtered", 10, std::bind(&LidarSubscriber::laserscan_to_landmarks, this, std::placeholders::_1));
-      m_visualization_publisher = this->create_publisher<visualization_msgs::msg::Marker>("landmark_visualization",10);
-    }
-  private:
-    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr m_laserscan_subscription_m;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_visualization_publisher;
-    std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-    void visualize_landmarks(std::queue<Observation2D> landmarks);
-};
+void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+  auto message = visualization_msgs::msg::Marker();
+  rclcpp::Clock clock = rclcpp::Clock();
+  message.header.stamp = clock.now();
+  message.header.frame_id = "laser";
+  message.action = 0;
+  message.type = 8;
+  message.ns = "landmark_list";
+  message.id = 0;
+  message.pose.orientation.w = 1.0;
+  message.scale.x = 0.04;
+  message.scale.y = 0.04;
+  auto color = std_msgs::msg::ColorRGBA();
+  color.r = 255;
+  color.g = 255;
+  color.b = 255;
+  color.a = 0.8;
+  while(!landmarks.empty()){
+    auto curr_point = geometry_msgs::msg::Point();
+    Observation2D curr_landmark = landmarks.front();
+    curr_point.x = -1*curr_landmark.range_m*cos(curr_landmark.bearing_rad);
+    curr_point.y = -1*curr_landmark.range_m*sin(curr_landmark.bearing_rad);
+    message.points.push_back(curr_point);
+    landmarks.pop();
+    message.colors.push_back(color);
+  }
+  observation_visualization_publisher->publish(message);
+}
 
-std::queue<Observation2D> LidarSubscriber::laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg){
+std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
   float angle_increment = msg->angle_increment;
   int measurement_count = static_cast<int>(std::round((msg->angle_max-msg->angle_min)/angle_increment)) + 1;
   std::queue<Observation2D> landmarks;
@@ -96,46 +109,10 @@ std::queue<Observation2D> LidarSubscriber::laserscan_to_landmarks(const sensor_m
     merge_landmarks(landmarks.front(), landmarks.back(), counts.front(), counts.back());
     landmarks.pop();
   }
-  RCLCPP_DEBUG(this->get_logger(), "%u %f %f\n", landmarks.size(), landmarks.front().range_m, landmarks.front().bearing_rad);
-  #ifdef VISUALIZE_LANDMARKS
+
+  #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
     std::queue<Observation2D>landmarks_copy(landmarks);
-    this->visualize_landmarks(landmarks_copy);
+    visualize_landmarks(landmarks_copy, observation_visualization_publisher);
   #endif
   return landmarks;
-}
-
-void LidarSubscriber::visualize_landmarks(std::queue<Observation2D> landmarks){
-  auto message = visualization_msgs::msg::Marker();
-  message.header.stamp = this->now();
-  message.header.frame_id = "laser";
-  message.action = 0;
-  message.type = 8;
-  message.ns = "landmark_list";
-  message.id = 0;
-  message.pose.orientation.w = 1.0;
-  message.scale.x = 0.04;
-  message.scale.y = 0.04;
-  auto color = std_msgs::msg::ColorRGBA();
-  color.r = 255;
-  color.g = 255;
-  color.b = 255;
-  color.a = 0.8;
-  while(!landmarks.empty()){
-    auto curr_point = geometry_msgs::msg::Point();
-    Observation2D curr_landmark = landmarks.front();
-    curr_point.x = -1*curr_landmark.range_m*cos(curr_landmark.bearing_rad);
-    curr_point.y = -1*curr_landmark.range_m*sin(curr_landmark.bearing_rad);
-    message.points.push_back(curr_point);
-    landmarks.pop();
-    message.colors.push_back(color);
-  }
-  this->m_visualization_publisher->publish(message);
-}
-
-int main(int argc, char * argv[])
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<LidarSubscriber>());
-  rclcpp::shutdown();
-  return 0;
 }

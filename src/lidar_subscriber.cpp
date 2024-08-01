@@ -23,12 +23,6 @@ static bool same_landmark(const Observation2D &first_landmark, const Observation
 
 static void merge_landmarks(Observation2D &existing_landmark, Observation2D &new_measurement, int &count){
   existing_landmark.range_m = ((count-1)*existing_landmark.range_m+new_measurement.range_m)/count;
-  if(existing_landmark.bearing_rad>M_PI){
-	  existing_landmark.bearing_rad -=2*M_PI;
-  }
-  if(new_measurement.bearing_rad>M_PI){
-	  new_measurement.bearing_rad-=2*M_PI;
-  }
   existing_landmark.bearing_rad = ((count-1)*existing_landmark.bearing_rad+new_measurement.bearing_rad)/count;
 }
 
@@ -56,8 +50,8 @@ void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<
   message.ns = "landmark_list";
   message.id = 0;
   message.pose.orientation.w = 1.0;
-  message.scale.x = 0.04;
-  message.scale.y = 0.04;
+  message.scale.x = 0.03;
+  message.scale.y = 0.03;
   auto color = std_msgs::msg::ColorRGBA();
   color.r = 255;
   color.g = 255;
@@ -80,8 +74,8 @@ std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserSc
   int measurement_count = static_cast<int>(std::round((msg->angle_max-msg->angle_min)/angle_increment)) + 1;
   std::queue<Observation2D> landmarks;
   std::queue<int> counts; 
-	struct Observation2D previous_measurement;
-	struct Observation2D first_landmark_measurement;
+  struct Observation2D previous_measurement;
+  struct Observation2D first_landmark_measurement;
   for (int i = 1; i < measurement_count; i++){
     float curr_range = msg->ranges[i];
     if (curr_range == std::numeric_limits<float>::infinity()||curr_range == -1*std::numeric_limits<float>::infinity()){ 
@@ -109,10 +103,19 @@ std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserSc
     merge_landmarks(landmarks.front(), landmarks.back(), counts.front(), counts.back());
     landmarks.pop();
   }
-
-  #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
-    std::queue<Observation2D>landmarks_copy(landmarks);
-    visualize_landmarks(landmarks_copy, observation_visualization_publisher);
-  #endif
-  return landmarks;
+  struct Observation2D curr_landmark;
+  std::queue<Observation2D>wrapped_landmarks;
+  while(!landmarks.empty()){
+    curr_landmark = landmarks.front();
+    if(curr_landmark.bearing_rad>M_PI){
+      curr_landmark.bearing_rad -= 2*M_PI;
+    }
+    wrapped_landmarks.push(curr_landmark);
+    landmarks.pop();
+  }
+#ifdef VISUALIZE_LANDMARK_OBSERVATIONS
+  std::queue<Observation2D>landmarks_visual_copy(wrapped_landmarks);
+  visualize_landmarks(landmarks_visual_copy, observation_visualization_publisher);
+#endif 
+  return wrapped_landmarks;
 }

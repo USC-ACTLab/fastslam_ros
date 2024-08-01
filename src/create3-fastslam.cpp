@@ -21,6 +21,8 @@
 #include "lidar-subscriber.h"
 using namespace std::chrono_literals;
 
+#define VISUALIZE_ROB_PATH
+
 // constants for create3 pose sensor noise
 static const float x_accel_var = 0.0001543f;
 static const float y_accel_var = 0.0001636f;
@@ -46,10 +48,11 @@ class FastSLAMC3: public rclcpp::Node
 {
 public:
   FastSLAMC3(): Node("fastslam_create3"){
-
 #ifdef USE_ROB_ODOM
+    rclcpp::QoS subscriber_qos = rclcpp::QoS(10);
+    subscriber_qos.best_effort();
     m_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-    "odom", 10, std::bind(&FastSLAMC3::odom_callback, this, std::placeholders::_1));
+    "odom", subscriber_qos, std::bind(&FastSLAMC3::odom_callback, this, std::placeholders::_1));
 #elif defined(USE_ROB_IMU)
     rmw_qos_profile_t imu_init_profile = rmw_qos_profile_default;
     auto imu_qos_profile = std::make_unique<rclcpp::QoS>(rclcpp::QoSInitialization(imu_init_profile.history, 10), imu_init_profile);
@@ -61,8 +64,7 @@ public:
     m_control_sub = this->create_subscription<irobot_create_msgs::msg::WheelVels>(
       "robot_1/wheel_vels", 10, std::bind(&FastSLAMC3::control_callback, this, std::placeholders::_1));
 #endif // Motion model selection
-
-    m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
+     m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
     "scan_filtered", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
     m_observation_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("landmark_observations",10);
     m_deadreckon_odom = this->create_publisher<nav_msgs::msg::Odometry>("slam_motion", 10);
@@ -75,7 +77,7 @@ public:
     m_robot_manager = std::make_shared<Create3Manager>(init_pose, init_cmd, Eigen::Matrix2f::Zero(), 3.0f, rob_process_noise);
     m_fastslam_filter = std::make_unique<FastSLAMPF>(
       std::static_pointer_cast<RobotManager2D>(m_robot_manager));
-
+    m_path_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("path_visualization", 10);
     m_rob_pose_delta = {.x = 0, .y = 0, .theta_rad = 0};
     m_prev_rob_pose = m_rob_pose_delta;
     m_pose_calibrated = false;
@@ -97,6 +99,8 @@ private:
   void lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_observation_visualization_pub;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr m_deadreckon_odom;
+  std::vector<geometry_msgs::msg::Point> m_path_points; //for path visualization
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_path_visualization_pub;
   void publishSLAMOdom();
 
   //FastSLAM member variables
@@ -125,7 +129,6 @@ void FastSLAMC3::odom_callback(const nav_msgs::msg::Odometry& msg) {
     m_pose_calibrated = true;
   }
   m_prev_rob_pose = curr_pose;
-
   this->publishSLAMOdom();
 } // USE_ROB_ODOM
 #elif defined USE_ROB_IMU
@@ -148,15 +151,30 @@ void FastSLAMC3::control_callback(const irobot_create_msgs::msg::WheelVels& msg)
 #endif //Motion model selection
 
 void FastSLAMC3::publishSLAMOdom() {
-  RCLCPP_INFO(this->get_logger(), "Publishing robot odom delta");
+  //RCLCPP_INFO(this->get_logger(), "Publishing robot odom delta");
   auto message = nav_msgs::msg::Odometry();
   message.pose.pose.position.x = m_rob_pose_delta.x;
   message.pose.pose.position.y = m_rob_pose_delta.y;
   x_pos += m_rob_pose_delta.x;
   y_pos += m_rob_pose_delta.y;
-  RCLCPP_INFO(this->get_logger(), "Accu: x %f y %f", x_pos, y_pos);
-
+  //theta_var += m_rob_pose_delta.theta_rad
+  //RCLCPP_INFO(this->get_logger(), "Accu: x %f y %f", x_pos, y_pos);
   m_deadreckon_odom->publish(message);
+  auto visualization_message = visualization_msgs::msg::Marker();
+  visualization_message.header.frame_id = "map";
+  visualization_message.ns = "path";
+  visualization_message.id = 0;
+  visualization_message.type = 4;
+  visualization_message.lifetime = rclcpp::Duration(0,0);
+  auto curr_point = geometry_msgs::msg::Point();
+  curr_point.x = x_pos;
+  curr_point.y = y_pos;
+  m_path_points.push_back(curr_point);
+  visualization_message.points = m_path_points;	  
+  visualization_message.color.b = 1.0;
+  visualization_message.color.a = 1.0;
+  visualization_message.scale.x = 0.02;
+  this->m_path_visualization_pub->publish(visualization_message);
 }
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){

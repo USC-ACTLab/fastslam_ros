@@ -46,11 +46,11 @@ static void merge_landmarks(Observation2D &first_landmark, Observation2D &last_l
   last_landmark.bearing_rad = first_landmark.bearing_rad*weight1+(last_landmark.bearing_rad)*weight2;
 }
 
-void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher, std::string frame_id){
   auto message = visualization_msgs::msg::Marker();
   rclcpp::Clock clock = rclcpp::Clock();
   message.header.stamp = clock.now();
-  message.header.frame_id = "laser";
+  message.header.frame_id = frame_id;
   message.action = 0;
   message.type = 8;
   message.ns = "landmark_list";
@@ -112,7 +112,7 @@ std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserSc
 
   #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
     std::queue<Observation2D>landmarks_copy(landmarks);
-    visualize_landmarks(landmarks_copy, observation_visualization_publisher);
+    visualize_landmarks(landmarks_copy, observation_visualization_publisher, "laser");
   #endif
   return landmarks;
 }

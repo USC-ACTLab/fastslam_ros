@@ -41,6 +41,7 @@ ament_target_dependencies(create3 rclcpp std_msgs irobot_create_msgs nav_msgs se
 option(USE_ROB_ODOM "Use robot odometry estimate" ON)
 option(USE_ROB_IMU "Use robot imu for estimate" OFF)
 option(USE_ROB_CTRL "Use robot control for estimate" OFF)
+option(VISUALIZE_ROB_PATH "Visualize Robot Path" ON)
 
 # Link libraries for create3
 target_link_libraries(member_function FastSLAMLib)

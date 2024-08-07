@@ -46,11 +46,78 @@ static void merge_landmarks(Observation2D &first_landmark, Observation2D &last_l
   last_landmark.bearing_rad = first_landmark.bearing_rad*weight1+(last_landmark.bearing_rad)*weight2;
 }
 
-void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher, std::string frame_id){
+void visualize_landmarks(std::queue<Point2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr landmark_visualization_publisher){
   auto message = visualization_msgs::msg::Marker();
   rclcpp::Clock clock = rclcpp::Clock();
   message.header.stamp = clock.now();
-  message.header.frame_id = frame_id;
+  message.header.frame_id = "map";
+  message.action = 0;
+  message.type = 8;
+  message.ns = "landmark_list";
+  message.id = 0;
+  message.pose.orientation.w = 1.0;
+  message.scale.x = 0.04;
+  message.scale.y = 0.04;
+  auto color = std_msgs::msg::ColorRGBA();
+  color.r = 255;
+  color.g = 255;
+  color.b = 255;
+  color.a = 0.8;
+  while(!landmarks.empty()){
+    auto curr_point = geometry_msgs::msg::Point();
+    Point2D curr_landmark = landmarks.front();
+    curr_point.x = curr_landmark.x;
+    curr_point.y = curr_landmark.y;
+    message.points.push_back(curr_point);
+    landmarks.pop();
+    message.colors.push_back(color);
+  }
+  landmark_visualization_publisher->publish(message);
+}
+
+std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg){
+  float angle_increment = msg->angle_increment;
+  int measurement_count = static_cast<int>(std::round((msg->angle_max-msg->angle_min)/angle_increment)) + 1;
+  std::queue<Observation2D> landmarks;
+  std::queue<int> counts; 
+	struct Observation2D previous_measurement;
+	struct Observation2D first_landmark_measurement;
+  for (int i = 1; i < measurement_count; i++){
+    float curr_range = msg->ranges[i];
+    if (curr_range == std::numeric_limits<float>::infinity()||curr_range == -1*std::numeric_limits<float>::infinity()){ 
+      continue;
+    }
+    float curr_bearing = i * angle_increment;
+    struct Observation2D curr_measurement = {curr_range, curr_bearing};
+    if (landmarks.empty()){
+      landmarks.push(curr_measurement);
+      previous_measurement = curr_measurement;
+      first_landmark_measurement = curr_measurement;
+      counts.push(1);	       
+    }else if(same_landmark(curr_measurement, previous_measurement)){
+      counts.back()++;
+      merge_landmarks(landmarks.back(), curr_measurement, counts.back());
+    }else{
+      landmarks.push(curr_measurement);
+      counts.push(1);
+    }
+    previous_measurement = curr_measurement;
+  }
+  struct Observation2D last_measurement = previous_measurement;
+  //if the first_landmark and last landmarks are actually the same, they get combined!
+  if (landmarks.size()>1 and same_landmark(first_landmark_measurement, last_measurement)){
+    merge_landmarks(landmarks.front(), landmarks.back(), counts.front(), counts.back());
+    landmarks.pop();
+  }
+  return landmarks;
+}
+
+#ifdef VISUALIZE_LANDMARK_OBSERVATIONS
+void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+  auto message = visualization_msgs::msg::Marker();
+  rclcpp::Clock clock = rclcpp::Clock();
+  message.header.stamp = clock.now();
+  message.header.frame_id = "laser";
   message.action = 0;
   message.type = 8;
   message.ns = "landmark_list";
@@ -109,10 +176,8 @@ std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserSc
     merge_landmarks(landmarks.front(), landmarks.back(), counts.front(), counts.back());
     landmarks.pop();
   }
-
-  #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
-    std::queue<Observation2D>landmarks_copy(landmarks);
-    visualize_landmarks(landmarks_copy, observation_visualization_publisher, "laser");
-  #endif
+  std::queue<Observation2D>landmarks_copy(landmarks);
+  visualize_landmarks(landmarks_copy, observation_visualization_publisher);
   return landmarks;
 }
+#endif

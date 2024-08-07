@@ -61,7 +61,9 @@ public:
 #endif // Motion model selection
     m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
       "scan_filtered", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
+#ifdef VISUALIZE_LANDMARK_OBSERVATIONS
     m_observation_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("landmark_observations",10);
+#endif
     const struct Pose2D init_pose = {.x = 0, .y = 0, .theta_rad = 0};
     const struct VelocityCommand2D init_cmd {.vx_mps = 0, .wz_radps = 0};
     Eigen::Matrix3f rob_process_noise;
@@ -71,7 +73,7 @@ public:
     std::static_pointer_cast<RobotManager2D>(m_robot_manager));
 #ifdef VISUALIZE_ROB_PATH
     m_path_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("path_visualization", 10);
-#endif
+#endif 
   }
 private:
 #ifdef USE_ROB_ODOM
@@ -87,11 +89,8 @@ private:
 #endif //Motion model selection
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr m_landmark_sub;
   void lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+#ifdef VISUALIZE_LANDMARK_OBSERVATIONS
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_observation_visualization_pub;
-#ifdef VISUALIZE_ROB_PATH 
-  std::vector<geometry_msgs::msg::Point> m_path_points; //for path visualization
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_path_visualization_pub;
-  void visualizeSLAMOdom();
 #endif
   //FastSLAM member variables
   std::unique_ptr<FastSLAMPF> m_fastslam_filter;
@@ -149,7 +148,11 @@ void FastSLAMC3::visualizeSLAMOdom(){
 #endif
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
+#ifdef VISUALIZE_LANDMARK_OBSERVATIONS
   std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg, m_observation_visualization_pub);
+#else
+  std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg);
+#endif
   m_fastslam_filter->updateFilter(m_rob_pose, lidar_landmarks);
 }
 

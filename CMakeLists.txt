@@ -42,13 +42,14 @@ option(USE_ROB_ODOM "Use robot odometry estimate" ON)
 option(USE_ROB_IMU "Use robot imu for estimate" OFF)
 option(USE_ROB_CTRL "Use robot control for estimate" OFF)
 option(VISUALIZE_ROB_PATH "Visualize Robot Path" ON)
+option (VISUALIZE_LANDMARK_OBSERVATIONS "publishes information to visualize landmark observations in laser frame" OFF)
 
 # Link libraries for create3
 target_link_libraries(member_function FastSLAMLib)
 target_link_libraries(LidarSubscriberLib FastSLAMLib)
 target_link_libraries(create3 FastSLAMLib LidarSubscriberLib)
-target_compile_definitions(create3 PUBLIC USE_ROB_ODOM USE_ROB_IMU USE_ROB_CTRL VISUALIZE_ROB_PATH)
-
+target_compile_definitions(create3 PUBLIC USE_ROB_ODOM USE_ROB_IMU USE_ROB_CTRL VISUALIZE_ROB_PATH VISUALIZE_LANDMARK_OBSERVATIONS)
+target_compile_definitions(LidarSubscriberLib VISUALIZE_LANDMARK_OBSERVATIONS)
 # Install targets
 install(TARGETS
   member_function

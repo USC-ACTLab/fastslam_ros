@@ -21,8 +21,6 @@
 #include "lidar-subscriber.h"
 using namespace std::chrono_literals;
 
-#define VISUALIZE_ROB_PATH
-
 // constants for create3 pose sensor noise
 static const float x_accel_var = 0.0001543f;
 static const float y_accel_var = 0.0001636f;
@@ -48,35 +46,33 @@ class FastSLAMC3: public rclcpp::Node
 {
 public:
   FastSLAMC3(): Node("fastslam_create3"){
-  rclcpp::QoS subscriber_qos = rclcpp::QoS(10);
-  subscriber_qos.best_effort();
+    auto subscriber_qos = std::make_unique<rclcpp::QoS>(10);
+    subscriber_qos->best_effort();
 #ifdef USE_ROB_ODOM
     m_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-    "odom", subscriber_qos, std::bind(&FastSLAMC3::odom_callback, this, std::placeholders::_1));
+      "odom", *subscriber_qos, std::bind(&FastSLAMC3::odom_callback, this, std::placeholders::_1));
 #elif defined(USE_ROB_IMU)
-   m_imu_sub = this->create_subscription<sensor_msgs::msg::Imu>(
-      "robot_1/imu", subscriber_qos, std::bind(&FastSLAMC3::imu_callback, this, std::placeholders::_1));
-   m_rob_pose= {.x = 0, .y = 0, .theta_rad = 0};
+    m_imu_sub = this->create_subscription<sensor_msgs::msg::Imu>(
+      "/imu", *subscriber_qos, std::bind(&FastSLAMC3::imu_callback, this, std::placeholders::_1));
+    m_rob_pose= {.x = 0, .y = 0, .theta_rad = 0};
 #else // use robot control signal
     m_control_sub = this->create_subscription<irobot_create_msgs::msg::WheelVels>(
-      "robot_1/wheel_vels", 10, std::bind(&FastSLAMC3::control_callback, this, std::placeholders::_1));
+      "/wheel_vels", *subscriber_qos, std::bind(&FastSLAMC3::control_callback, this, std::placeholders::_1));
 #endif // Motion model selection
-     m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
-    "scan_filtered", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
+    m_landmark_sub = this->create_subscription<sensor_msgs::msg::LaserScan>(
+      "scan_filtered", 10, std::bind(&FastSLAMC3::lm_callback, this, std::placeholders::_1));
     m_observation_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("landmark_observations",10);
     const struct Pose2D init_pose = {.x = 0, .y = 0, .theta_rad = 0};
     const struct VelocityCommand2D init_cmd {.vx_mps = 0, .wz_radps = 0};
     Eigen::Matrix3f rob_process_noise;
     rob_process_noise.diagonal() << x_accel_var, y_accel_var, theta_var;
-
     m_robot_manager = std::make_shared<Create3Manager>(init_pose, init_cmd, Eigen::Matrix2f::Zero(), 3.0f, rob_process_noise);
     m_fastslam_filter = std::make_unique<FastSLAMPF>(
-      std::static_pointer_cast<RobotManager2D>(m_robot_manager));
+    std::static_pointer_cast<RobotManager2D>(m_robot_manager));
 #ifdef VISUALIZE_ROB_PATH
     m_path_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("path_visualization", 10);
 #endif
   }
-
 private:
 #ifdef USE_ROB_ODOM
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odom_sub;
@@ -100,10 +96,8 @@ private:
   //FastSLAM member variables
   std::unique_ptr<FastSLAMPF> m_fastslam_filter;
   std::shared_ptr<Create3Manager> m_robot_manager;
-
   //robot parameters
-  struct Pose2D m_rob_pose;
-  
+  struct Pose2D m_rob_pose; 
 };
 
 #ifdef USE_ROB_ODOM
@@ -115,6 +109,7 @@ void FastSLAMC3::odom_callback(const nav_msgs::msg::Odometry& msg) {
   this->visualizeSLAMOdom();
 #endif
 } // USE_ROB_ODOM
+
 #elif defined USE_ROB_IMU
 void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu& msg){
   RCLCPP_INFO(this->get_logger(), "Publishing robot odom delta from IMU");
@@ -128,10 +123,12 @@ void FastSLAMC3::imu_callback(const sensor_msgs::msg::Imu& msg){
   this->visualizeSLAMOdom();
 #endif
 } //USE_ROB_IMU
+
 #else
 void FastSLAMC3::control_callback(const irobot_create_msgs::msg::WheelVels& msg){
 }
 #endif //Motion model selection
+
 #ifdef VISUALIZE_ROB_PATH
 void FastSLAMC3::visualizeSLAMOdom(){ 
   auto visualization_message = visualization_msgs::msg::Marker();
@@ -153,7 +150,7 @@ void FastSLAMC3::visualizeSLAMOdom(){
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
   std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg, m_observation_visualization_pub);
-   m_fastslam_filter->updateFilter(m_rob_pose, lidar_landmarks);
+  m_fastslam_filter->updateFilter(m_rob_pose, lidar_landmarks);
 }
 
 int main(int argc, char * argv[])

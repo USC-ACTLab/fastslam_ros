@@ -47,7 +47,7 @@ option(VISUALIZE_ROB_PATH "Visualize Robot Path" ON)
 target_link_libraries(member_function FastSLAMLib)
 target_link_libraries(LidarSubscriberLib FastSLAMLib)
 target_link_libraries(create3 FastSLAMLib LidarSubscriberLib)
-target_compile_definitions(create3 PUBLIC USE_ROB_ODOM USE_ROB_IMU USE_ROB_CTRL)
+target_compile_definitions(create3 PUBLIC USE_ROB_ODOM USE_ROB_IMU USE_ROB_CTRL VISUALIZE_ROB_PATH)
 
 # Install targets
 install(TARGETS

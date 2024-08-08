@@ -5,23 +5,20 @@
 #include <limits>
 #include "rclcpp/rclcpp.hpp"
 #include "core-structs.h"
-#include "lidar-subscriber.h"
+#include "lm-observation-and-visualization.h"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
-constexpr float LANDMARK_THRESHOLD_m = 0.02;
-#define VISUALIZE_LANDMARK_OBSERVATIONS
-
-static bool same_landmark(const Observation2D &first_landmark, const Observation2D &second_landmark){
+static bool sameLandmark(const Observation2D &first_landmark, const Observation2D &second_landmark){
   float r1 = first_landmark.range_m;
   float r2 = second_landmark.range_m;
   float theta1 = first_landmark.bearing_rad;
   float theta2 = second_landmark.bearing_rad;
   float distance = sqrt(pow(r1,2.0)+pow(r2, 2.0)-2*r1*r2*cos(theta1-theta2));
-  return  distance <= LANDMARK_THRESHOLD_m;
+  return  distance <= LM_THRESHOLD_m;
 }
 
-static void merge_landmarks(Observation2D &existing_landmark, Observation2D &new_measurement, int &count){
+static void mergeLandmarks(Observation2D &existing_landmark, Observation2D &new_measurement, int &count){
   existing_landmark.range_m = ((count-1)*existing_landmark.range_m+new_measurement.range_m)/count;
   if(existing_landmark.bearing_rad>M_PI){
 	  existing_landmark.bearing_rad -=2*M_PI;
@@ -32,7 +29,7 @@ static void merge_landmarks(Observation2D &existing_landmark, Observation2D &new
   existing_landmark.bearing_rad = ((count-1)*existing_landmark.bearing_rad+new_measurement.bearing_rad)/count;
 }
 
-static void merge_landmarks(Observation2D &first_landmark, Observation2D &last_landmark, const int &count1, const int &count2){
+static void mergeLandmarks(Observation2D &first_landmark, Observation2D &last_landmark, const int &count1, const int &count2){
   //standard weighted average --> between first_landmark and last landmark
   float weight1 = ((float)count1)/((float)(count1+count2));
   float weight2 = ((float)count2)/((float)(count1+count2));
@@ -46,7 +43,7 @@ static void merge_landmarks(Observation2D &first_landmark, Observation2D &last_l
   last_landmark.bearing_rad = first_landmark.bearing_rad*weight1+(last_landmark.bearing_rad)*weight2;
 }
 
-void visualize_landmarks(std::queue<Point2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr landmark_visualization_publisher){
+void visualizePFLandmarks(std::queue<Point2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr landmark_visualization_publisher){
   auto message = visualization_msgs::msg::Marker();
   rclcpp::Clock clock = rclcpp::Clock();
   message.header.stamp = clock.now();
@@ -56,13 +53,13 @@ void visualize_landmarks(std::queue<Point2D> landmarks, rclcpp::Publisher<visual
   message.ns = "landmark_list";
   message.id = 0;
   message.pose.orientation.w = 1.0;
-  message.scale.x = 0.04;
-  message.scale.y = 0.04;
+  message.scale.x = LM_VISUALIZATION_SCALE_m;
+  message.scale.y = LM_VISUALIZATION_SCALE_m;
   auto color = std_msgs::msg::ColorRGBA();
-  color.r = 255;
-  color.g = 255;
-  color.b = 255;
-  color.a = 0.8;
+  color.r = LM_COLOR_RED;
+  color.g = LM_COLOR_GREEN;
+  color.b = LM_COLOR_RED;
+  color.a = 1.0;
   while(!landmarks.empty()){
     auto curr_point = geometry_msgs::msg::Point();
     Point2D curr_landmark = landmarks.front();
@@ -75,11 +72,12 @@ void visualize_landmarks(std::queue<Point2D> landmarks, rclcpp::Publisher<visual
   landmark_visualization_publisher->publish(message);
 }
 
-std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg){
+std::queue<Observation2D> calculateLMObservations(const sensor_msgs::msg::LaserScan::SharedPtr msg){
   float angle_increment = msg->angle_increment;
   int measurement_count = static_cast<int>(std::round((msg->angle_max-msg->angle_min)/angle_increment)) + 1;
   std::queue<Observation2D> landmarks;
-  std::queue<int> counts; 
+  int first_count=0;
+  int last_count=0;
 	struct Observation2D previous_measurement;
 	struct Observation2D first_landmark_measurement;
   for (int i = 1; i < measurement_count; i++){
@@ -93,27 +91,31 @@ std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserSc
       landmarks.push(curr_measurement);
       previous_measurement = curr_measurement;
       first_landmark_measurement = curr_measurement;
-      counts.push(1);	       
-    }else if(same_landmark(curr_measurement, previous_measurement)){
-      counts.back()++;
-      merge_landmarks(landmarks.back(), curr_measurement, counts.back());
+      first_count=1;
+      last_count=1; 	       
+    }else if(sameLandmark(curr_measurement, previous_measurement)){
+      if (landmarks.size()==1){
+        first_count++; //if there is only one LM the last LM and first LM refer to the same LM and should both have their counts increased
+      }
+      last_count++;
+      mergeLandmarks(landmarks.back(), curr_measurement, last_count);
     }else{
       landmarks.push(curr_measurement);
-      counts.push(1);
+      //creating a new landmark sets the last count back to 1
+      last_count = 1;
     }
     previous_measurement = curr_measurement;
   }
   struct Observation2D last_measurement = previous_measurement;
   //if the first_landmark and last landmarks are actually the same, they get combined!
-  if (landmarks.size()>1 and same_landmark(first_landmark_measurement, last_measurement)){
-    merge_landmarks(landmarks.front(), landmarks.back(), counts.front(), counts.back());
+  if (landmarks.size()>1 and sameLandmark(first_landmark_measurement, last_measurement)){
+    mergeLandmarks(landmarks.front(), landmarks.back(), first_count, last_count);
     landmarks.pop();
   }
   return landmarks;
 }
 
-#ifdef VISUALIZE_LANDMARK_OBSERVATIONS
-void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+void visualizeLMObservations(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
   auto message = visualization_msgs::msg::Marker();
   rclcpp::Clock clock = rclcpp::Clock();
   message.header.stamp = clock.now();
@@ -123,13 +125,13 @@ void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<
   message.ns = "landmark_list";
   message.id = 0;
   message.pose.orientation.w = 1.0;
-  message.scale.x = 0.04;
-  message.scale.y = 0.04;
+  message.scale.x = LM_VISUALIZATION_SCALE_m;
+  message.scale.y = LM_VISUALIZATION_SCALE_m;
   auto color = std_msgs::msg::ColorRGBA();
-  color.r = 255;
-  color.g = 255;
-  color.b = 255;
-  color.a = 0.8;
+  color.r = LM_COLOR_RED;
+  color.g = LM_COLOR_GREEN;
+  color.b = LM_COLOR_BLUE;
+  color.a = 1.0;
   while(!landmarks.empty()){
     auto curr_point = geometry_msgs::msg::Point();
     Observation2D curr_landmark = landmarks.front();
@@ -142,42 +144,9 @@ void visualize_landmarks(std::queue<Observation2D> landmarks, rclcpp::Publisher<
   observation_visualization_publisher->publish(message);
 }
 
-std::queue<Observation2D> laserscan_to_landmarks(const sensor_msgs::msg::LaserScan::SharedPtr msg, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
-  float angle_increment = msg->angle_increment;
-  int measurement_count = static_cast<int>(std::round((msg->angle_max-msg->angle_min)/angle_increment)) + 1;
-  std::queue<Observation2D> landmarks;
-  std::queue<int> counts; 
-	struct Observation2D previous_measurement;
-	struct Observation2D first_landmark_measurement;
-  for (int i = 1; i < measurement_count; i++){
-    float curr_range = msg->ranges[i];
-    if (curr_range == std::numeric_limits<float>::infinity()||curr_range == -1*std::numeric_limits<float>::infinity()){ 
-      continue;
-    }
-    float curr_bearing = i * angle_increment;
-    struct Observation2D curr_measurement = {curr_range, curr_bearing};
-    if (landmarks.empty()){
-      landmarks.push(curr_measurement);
-      previous_measurement = curr_measurement;
-      first_landmark_measurement = curr_measurement;
-      counts.push(1);	       
-    }else if(same_landmark(curr_measurement, previous_measurement)){
-      counts.back()++;
-      merge_landmarks(landmarks.back(), curr_measurement, counts.back());
-    }else{
-      landmarks.push(curr_measurement);
-      counts.push(1);
-    }
-    previous_measurement = curr_measurement;
-  }
-  struct Observation2D last_measurement = previous_measurement;
-  //if the first_landmark and last landmarks are actually the same, they get combined!
-  if (landmarks.size()>1 and same_landmark(first_landmark_measurement, last_measurement)){
-    merge_landmarks(landmarks.front(), landmarks.back(), counts.front(), counts.back());
-    landmarks.pop();
-  }
+std::queue<Observation2D> calculateAndVisualizeLMObservations(const sensor_msgs::msg::LaserScan::SharedPtr msg, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+  std::queue<Observation2D> landmarks = calculateLMObservations(msg);
   std::queue<Observation2D>landmarks_copy(landmarks);
-  visualize_landmarks(landmarks_copy, observation_visualization_publisher);
+  visualizeLMObservations(landmarks_copy, observation_visualization_publisher);
   return landmarks;
 }
-#endif

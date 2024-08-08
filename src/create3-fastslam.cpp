@@ -18,7 +18,7 @@
 
 #include "robot-manager.h"
 #include "particle-filter.h"
-#include "lidar-subscriber.h"
+#include "lm-observation-and-visualization.h"
 using namespace std::chrono_literals;
 
 // constants for create3 pose sensor noise
@@ -92,6 +92,11 @@ private:
 #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_observation_visualization_pub;
 #endif
+#ifdef VISUALIZE_ROB_PATH
+  std::vector<geometry_msgs::msg::Point> m_path_points;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_path_visualization_pub;
+  void visualizeSLAMOdom();
+#endif
   //FastSLAM member variables
   std::unique_ptr<FastSLAMPF> m_fastslam_filter;
   std::shared_ptr<Create3Manager> m_robot_manager;
@@ -149,9 +154,9 @@ void FastSLAMC3::visualizeSLAMOdom(){
 
 void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
 #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
-  std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg, m_observation_visualization_pub);
+  std::queue<Observation2D> lidar_landmarks = calculateAndVisualizeLMObservations(msg, m_observation_visualization_pub);
 #else
-  std::queue<Observation2D> lidar_landmarks = laserscan_to_landmarks(msg);
+  std::queue<Observation2D> lidar_landmarks = calculateLMObservations(msg);
 #endif
   m_fastslam_filter->updateFilter(m_rob_pose, lidar_landmarks);
 }

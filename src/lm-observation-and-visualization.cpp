@@ -20,12 +20,6 @@ static bool sameLandmark(const Observation2D &first_landmark, const Observation2
 
 static void mergeLandmarks(Observation2D &existing_landmark, Observation2D &new_measurement, int &count){
   existing_landmark.range_m = ((count-1)*existing_landmark.range_m+new_measurement.range_m)/count;
-  if(existing_landmark.bearing_rad>M_PI){
-	  existing_landmark.bearing_rad -=2*M_PI;
-  }
-  if(new_measurement.bearing_rad>M_PI){
-	  new_measurement.bearing_rad-=2*M_PI;
-  }
   existing_landmark.bearing_rad = ((count-1)*existing_landmark.bearing_rad+new_measurement.bearing_rad)/count;
 }
 

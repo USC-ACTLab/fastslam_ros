@@ -26,7 +26,7 @@ constexpr float LM_COLOR_BLUE = 255;
  * @param[in] landmark_visualization_publisher: publisher to publish the visualization messages
  */
 
-void visualizePFLandmarks(std::vector<Point2D> landmarks, 
+void visualizePFLandmarks(const std::vector<Point2D>& landmarks, 
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr landmark_visualization_publisher);
 
 /**

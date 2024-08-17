@@ -16,6 +16,12 @@ Make sure the following packages are installed before proceeding to package setu
     Remeber to use the **ROS 2** branch
 
 2. Turtlebot 4 simulator (optional, for simulation): ![github link](https://github.com/turtlebot/turtlebot4_simulator)
+   
+3. Laser Filters ![github_link](https://github.com/ros-perception/laser_filters.git)
+   
+4. Create3 Examples (for teleoperation) ![github+link](https://github.com/iRobotEducation/create3_examples.git)
+   
+5. Vicon Bridge ![github link](https://github.com/ethz-asl/vicon_bridge.git)
 
 ## II. Installation Instructions
 
@@ -30,5 +36,6 @@ colcon build --packages-select slam_publisher
 # if you are using bash, otherwise source setup.zsh
 source install/setup.bash 
 ```
-
+## III. Running
 `
+

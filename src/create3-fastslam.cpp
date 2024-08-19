@@ -71,8 +71,9 @@ public:
     m_robot_manager = std::make_shared<Create3Manager>(init_pose, init_cmd, Eigen::Matrix2f::Zero(), 3.0f, rob_process_noise);
     m_fastslam_filter = std::make_unique<FastSLAMPF>(
     std::static_pointer_cast<RobotManager2D>(m_robot_manager));
-#ifdef VISUALIZE_ROB_PATH
+#ifdef VISUALIZE_SLAM
     m_path_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("path_visualization", 10);
+    m_pf_landmarks_visualization_pub = this->create_publisher<visualization_msgs::msg::Marker>("pf_landmarks",10);
 #endif 
   }
 private:
@@ -92,11 +93,13 @@ private:
 #ifdef VISUALIZE_LANDMARK_OBSERVATIONS
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_observation_visualization_pub;
 #endif
-#ifdef VISUALIZE_ROB_PATH
+#ifdef VISUALIZE_SLAM
   std::vector<geometry_msgs::msg::Point> m_path_points;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_path_visualization_pub;
   void visualizeSLAMOdom();
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_pf_landmarks_visualization_pub;
 #endif
+
   //FastSLAM member variables
   std::unique_ptr<FastSLAMPF> m_fastslam_filter;
   std::shared_ptr<Create3Manager> m_robot_manager;
@@ -133,7 +136,7 @@ void FastSLAMC3::control_callback(const irobot_create_msgs::msg::WheelVels& msg)
 }
 #endif //Motion model selection
 
-#ifdef VISUALIZE_ROB_PATH
+#ifdef VISUALIZE_SLAM
 void FastSLAMC3::visualizeSLAMOdom(){ 
   auto visualization_message = visualization_msgs::msg::Marker();
   visualization_message.header.frame_id = "map";
@@ -159,6 +162,9 @@ void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
   std::queue<Observation2D> lidar_landmarks = calculateLMObservations(msg);
 #endif
   m_fastslam_filter->updateFilter(m_rob_pose, lidar_landmarks);
+#ifdef VISUALIZE_SLAM
+  visualizePFLandmarks(m_fastslam_filter->sampleLandmarks(),  );
+#endif
 }
 
 int main(int argc, char * argv[])

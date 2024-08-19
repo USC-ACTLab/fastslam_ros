@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <cmath>
+#include <vector>
 #include <queue>
 #include <limits>
 #include "rclcpp/rclcpp.hpp"
@@ -21,11 +22,11 @@ constexpr float LM_COLOR_BLUE = 255;
 /**
  * @brief Publishes visualization messages for landmarks in the global frame
  * @details Intended to be used with sampleLandmarks() in FastSLAMPF
- * @param[in] landmarks: queue of landmarks to be visualized
+ * @param[in] landmarks: vector of landmarks to be visualized
  * @param[in] landmark_visualization_publisher: publisher to publish the visualization messages
  */
 
-void visualizePFLandmarks(std::queue<Point2D> landmarks, 
+void visualizePFLandmarks(const std::vector<Point2D>& landmarks, 
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr landmark_visualization_publisher);
 
 /**

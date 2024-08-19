@@ -2,6 +2,7 @@
 #include <memory>
 #include <cmath>
 #include <queue>
+#include <vector>
 #include <limits>
 #include "rclcpp/rclcpp.hpp"
 #include "core-structs.h"
@@ -37,7 +38,7 @@ static void mergeLandmarks(Observation2D &first_landmark, Observation2D &last_la
   last_landmark.bearing_rad = first_landmark.bearing_rad*weight1+(last_landmark.bearing_rad)*weight2;
 }
 
-void visualizePFLandmarks(std::queue<Point2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr landmark_visualization_publisher){
+void visualizePFLandmarks(const std::vector<Point2D>& landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr landmark_visualization_publisher){
   auto message = visualization_msgs::msg::Marker();
   rclcpp::Clock clock = rclcpp::Clock();
   message.header.stamp = clock.now();
@@ -54,13 +55,11 @@ void visualizePFLandmarks(std::queue<Point2D> landmarks, rclcpp::Publisher<visua
   color.g = LM_COLOR_GREEN;
   color.b = LM_COLOR_RED;
   color.a = 1.0;
-  while(!landmarks.empty()){
+  for(const auto& curr_landmark: landmarks){
     auto curr_point = geometry_msgs::msg::Point();
-    Point2D curr_landmark = landmarks.front();
     curr_point.x = curr_landmark.x;
     curr_point.y = curr_landmark.y;
     message.points.push_back(curr_point);
-    landmarks.pop();
     message.colors.push_back(color);
   }
   landmark_visualization_publisher->publish(message);
@@ -109,7 +108,7 @@ std::queue<Observation2D> calculateLMObservations(const sensor_msgs::msg::LaserS
   return landmarks;
 }
 
-void visualizeLMObservations(std::queue<Observation2D> landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
+void visualizeLMObservations(std::queue<Observation2D>& landmarks, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr observation_visualization_publisher){
   auto message = visualization_msgs::msg::Marker();
   rclcpp::Clock clock = rclcpp::Clock();
   message.header.stamp = clock.now();

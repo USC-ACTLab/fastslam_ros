@@ -30,19 +30,21 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)
 target_include_directories(LMLib PRIVATE ${PROJECT_SOURCE_DIR}/include)
 add_executable(member_function src/member_function.cpp)
 add_executable(create3 src/create3-fastslam.cpp)
+add_executable(vicon_visualization src/vicon-visualization.cpp)
 
 # Link dependencies
 
 ament_target_dependencies(member_function rclcpp std_msgs)
 ament_target_dependencies(LMLib rclcpp sensor_msgs std_msgs geometry_msgs visualization_msgs)
 ament_target_dependencies(create3 rclcpp std_msgs irobot_create_msgs nav_msgs sensor_msgs visualization_msgs)
+ament_target_dependencies(vicon_visualization rclcpp std_msgs)
 
 # Optionally define compilation flags
 option(USE_ROB_ODOM "Use robot odometry estimate" ON)
 option(USE_ROB_IMU "Use robot imu for estimate" OFF)
 option(USE_ROB_CTRL "Use robot control for estimate" OFF)
 option (VISUALIZE_LANDMARK_OBSERVATIONS "publishes information to visualize landmark observations in laser frame" OFF)
-option (VISUALIZE_SLAM "publishes information to visualize SLAM LM estimates and robot path in map frame" ON)
+option (VISUALIZE_SLAM "publishes information to visualize SLAM LM estimates and robot path in map frame" OFF)
 option (VISUALIZE_VICON "publishes information necessary to visualize ground truth LMs and robot path" OFF)
 
 # Link libraries for create3
@@ -55,6 +57,7 @@ install(TARGETS
   member_function
   create3
   LMLib
+  vicon_visualization
   DESTINATION lib/${PROJECT_NAME}
 )
 

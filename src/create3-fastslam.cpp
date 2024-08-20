@@ -163,7 +163,7 @@ void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
 #endif
   m_fastslam_filter->updateFilter(m_rob_pose, lidar_landmarks);
 #ifdef VISUALIZE_SLAM
-  visualizePFLandmarks(m_fastslam_filter->sampleLandmarks(),  );
+  visualizePFLandmarks(m_fastslam_filter->sampleLandmarks(), m_pf_landmarks_visualization_pub);
 #endif
 }
 

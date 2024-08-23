@@ -161,6 +161,7 @@ void FastSLAMC3::lm_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg){
 #else
   std::queue<Observation2D> lidar_landmarks = calculateLMObservations(msg);
 #endif
+  RCLCPP_INFO_ONCE(this->get_logger(), "Range: %f, bearing: %f", lidar_landmarks.front().range_m, lidar_landmarks.front().bearing_rad);
   m_fastslam_filter->updateFilter(m_rob_pose, lidar_landmarks);
 #ifdef VISUALIZE_SLAM
   visualizePFLandmarks(m_fastslam_filter->sampleLandmarks(), m_pf_landmarks_visualization_pub);

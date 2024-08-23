@@ -21,7 +21,7 @@ Make sure the following packages are installed before proceeding to package setu
    
 4. Create3 Examples (for teleoperation) ![github+link](https://github.com/iRobotEducation/create3_examples.git) [irobot link](https://edu.irobot.com/learning-library/teleop-twist-with-the-create-3)
    
-5. Vicon Bridge ![github link](https://github.com/ethz-asl/vicon_bridge.git)
+5. Vicon Bridge ![github link](https://github.com/dasc-lab/ros2-vicon-bridge)
 
 ## II. Installation Instructions
 

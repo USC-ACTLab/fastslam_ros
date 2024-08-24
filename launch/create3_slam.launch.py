@@ -31,7 +31,6 @@ def generate_launch_description():
                     'rplidar_a1_launch.py'
                 ])
             ])
-   
         )
     ])
     ld.add_action(
@@ -49,4 +48,3 @@ def generate_launch_description():
         )
     )
     return ld
-

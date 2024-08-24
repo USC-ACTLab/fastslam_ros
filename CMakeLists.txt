@@ -37,7 +37,7 @@ add_executable(vicon_visualization src/vicon-visualization.cpp)
 ament_target_dependencies(member_function rclcpp std_msgs)
 ament_target_dependencies(LMLib rclcpp sensor_msgs std_msgs geometry_msgs visualization_msgs)
 ament_target_dependencies(create3 rclcpp std_msgs irobot_create_msgs nav_msgs sensor_msgs visualization_msgs)
-ament_target_dependencies(vicon_visualization rclcpp std_msgs)
+ament_target_dependencies(vicon_visualization rclcpp std_msgs geometry_msgs visualization_msgs)
 
 # Optionally define compilation flags
 option(USE_ROB_ODOM "Use robot odometry estimate" ON)
